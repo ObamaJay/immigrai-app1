@@ -6,3 +6,4 @@ supabase
 pydantic
 email-validator
 fpdf
+pdfrw
