@@ -5,3 +5,4 @@ requests
 supabase
 pydantic
 email-validator
+fpdf
