@@ -1,0 +1,23 @@
+USCIS Document Checklist:
+1. Completed Form I-130, Petition for Alien Relative
+2. Copy of petitioner's birth certificate
+3. Copy of beneficiary's birth certificate
+4. Copy of marriage certificate
+5. Proof of petitioner's U.S. citizenship or lawful permanent resident status
+6. Proof of bona fide marriage (e.g. joint bank accounts, lease agreements, photos)
+7. Passport-style photos of petitioner and beneficiary
+8. Payment for filing fee
+
+Draft Form Field Summary:
+- Petitioner Information:
+  - Full Name: Sarah Johnson
+  - Date of Birth: January 01, 1990
+  - Country of Birth: United States
+  - Citizenship Status: U.S. citizen
+- Beneficiary Information:
+  - Full Name: Ahmed Kahn
+  - Date of Birth: January 01, 1990
+  - Country of Birth: Pakistan
+- Relationship: Spouse
+- Date of Marriage: July 17, 2025
+- Visa Type: I-130 (Spouse)
