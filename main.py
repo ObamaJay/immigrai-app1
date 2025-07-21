@@ -16,10 +16,10 @@ from pathlib import Path
 
 # ---- Load Environment ----
 load_dotenv()
-openai.api_key = os.getenv("openai_api_key")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase: Client = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
 
 # ---- Config ----
 st.set_page_config(page_title="ImmigrAI", layout="centered")
