@@ -11,15 +11,14 @@ import zipfile
 from io import BytesIO
 import smtplib
 from email.message import EmailMessage
-from supabase import create_client, Client
+from supabase import create_client
 from pathlib import Path
 
 # ---- Load Environment ----
-load_dotenv()
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
-supabase: Client = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ---- Config ----
 st.set_page_config(page_title="ImmigrAI", layout="centered")
