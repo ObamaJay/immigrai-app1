@@ -35,11 +35,15 @@ def clean_text(text):
 
 # ---- GPT Call ----
 def call_gpt(prompt):
-    response = openai.ChatCompletion.create(
+    response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.4,
     )
+    
+    output = response.choices[0].message.content
+
+
     return response.choices[0].message["content"]
 
 # ---- Checklist PDF ----
