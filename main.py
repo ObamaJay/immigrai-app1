@@ -39,9 +39,8 @@ def call_gpt(prompt):
         messages=[{"role": "user", "content": prompt}],
         temperature=0.4,
     )
+    return response.choices[0].message.content
 
-    
-    output = response.choices[0].message.content
 
 # ---- Checklist PDF ----
 def generate_pdf(text, filename="checklist.pdf"):
