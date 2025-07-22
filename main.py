@@ -18,7 +18,7 @@ from pathlib import Path
 load_dotenv()
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_KEY = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
 supabase: Client = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
 
 # ---- Config ----
