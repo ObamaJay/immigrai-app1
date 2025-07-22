@@ -1,6 +1,6 @@
 
 import streamlit as st
-import openai
+from openai import OpenAI
 from dotenv import load_dotenv
 import os
 from fpdf import FPDF
@@ -16,7 +16,7 @@ from pathlib import Path
 
 # ---- Load Environment ----
 load_dotenv()
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
 supabase: Client = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
@@ -35,11 +35,12 @@ def clean_text(text):
 
 # ---- GPT Call ----
 def call_gpt(prompt):
-    response = openai.chat.completions.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.4,
     )
+
     
     output = response.choices[0].message.content
 
