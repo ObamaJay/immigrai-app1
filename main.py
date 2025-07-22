@@ -44,9 +44,6 @@ def call_gpt(prompt):
     
     output = response.choices[0].message.content
 
-
-    return response.choices[0].message["content"]
-
 # ---- Checklist PDF ----
 def generate_pdf(text, filename="checklist.pdf"):
     pdf = FPDF()
