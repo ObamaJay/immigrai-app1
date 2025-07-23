@@ -1,4 +1,3 @@
-
 import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -41,7 +40,6 @@ def call_gpt(prompt):
     )
     return response.choices[0].message.content
 
-
 # ---- Checklist PDF ----
 def generate_pdf(text, filename="checklist.pdf"):
     pdf = FPDF()
@@ -83,172 +81,6 @@ def fill_form_pdf(input_pdf_path, output_pdf_path, data_dict):
     PdfWriter().write(output_pdf_path, pdf)
     return output_pdf_path
 
-# ---- Upload checklist text to Supabase Storage ----
-
-
-
-
-
-def upload_checklist_text_to_supabase(petitioner_name: str, beneficiary_name: str, checklist_text: str) -> str:
-    filename = f"{petitioner_name.lower().replace(' ', '_')}_{beneficiary_name.lower().replace(' ', '_')}_checklist.txt"
-    local_path = Path("generated") / filename
-    storage_path = f"checklists/{filename}"
-
-    os.makedirs("generated", exist_ok=True)
-
-    try:
-        with open(local_path, "w", encoding="utf-8") as f:
-            f.write(checklist_text)
-
-        # Simulate upsert by removing old file
-        supabase.storage.from_("casefiles").remove([storage_path])
-
-        # Upload new file without parsing response
-        with open(local_path, "rb") as f:
-            supabase.storage.from_("casefiles").upload(
-                storage_path,
-                f,
-                {"content-type": "text/plain"}
-            )
-
-        public_url = supabase.storage.from_("casefiles").get_public_url(storage_path)
-        return public_url.strip()
-
-    except Exception as e:
-        st.error(f"❌ Checklist upload failed: {e}")
-        return ""
-
-    local_path = Path("generated") / filename
-    storage_path = f"checklists/{filename}"
-
-    os.makedirs("generated", exist_ok=True)
-
-    try:
-        with open(local_path, "w", encoding="utf-8") as f:
-            f.write(checklist_text)
-
-        try:
-            supabase.storage.from_("casefiles").remove([storage_path])
-        except:
-            pass
-
-        with open(local_path, "rb") as f:
-            supabase.storage.from_("casefiles").upload(
-                storage_path,
-                f,
-                {"content-type": "text/plain"}
-            )
-
-        public_url = supabase.storage.from_("casefiles").get_public_url(storage_path)
-        return public_url.strip()
-
-    except Exception as e:
-        st.error(f"❌ Checklist upload failed: {e}")
-        return ""
-
-    local_path = Path("generated") / filename
-    storage_path = f"checklists/{filename}"
-
-    os.makedirs("generated", exist_ok=True)
-
-    try:
-        with open(local_path, "w", encoding="utf-8") as f:
-            f.write(checklist_text)
-
-        try:
-            supabase.storage.from_("casefiles").remove([storage_path])
-        except:
-            pass  # ignore if file doesn't exist
-
-        with open(local_path, "rb") as f:
-            _ = supabase.storage.from_("casefiles").upload(
-                storage_path,
-                f,
-                {"content-type": "text/plain"}
-            )
-
-        public_url = supabase.storage.from_("casefiles").get_public_url(storage_path)
-        return public_url
-
-    except Exception as e:
-        st.error(f"❌ Checklist upload failed: {e}")
-        return ""
-
-    local_path = Path("generated") / filename
-    storage_path = f"checklists/{filename}"
-
-    os.makedirs("generated", exist_ok=True)
-
-    try:
-        # Save checklist text locally
-        with open(local_path, "w", encoding="utf-8") as f:
-            f.write(checklist_text)
-
-        # Delete existing file (if any) to simulate upsert
-        try:
-            supabase.storage.from_("casefiles").remove([storage_path])
-        except:
-            pass  # Ignore if file doesn't exist
-
-        # Upload new file
-        with open(local_path, "rb") as f:
-            supabase.storage.from_("casefiles").upload(
-                storage_path,
-                f,
-                {"content-type": "text/plain"}
-            )
-
-        public_url = supabase.storage.from_("casefiles").get_public_url(storage_path)
-        return public_url
-    except Exception as e:
-        st.error(f"❌ Checklist upload failed: {e}")
-        return ""
-
-    local_path = Path("generated") / filename
-    storage_path = f"checklists/{filename}"
-
-    os.makedirs("generated", exist_ok=True)
-
-    try:
-        with open(local_path, "w", encoding="utf-8") as f:
-            f.write(checklist_text)
-
-        with open(local_path, "rb") as f:
-            supabase.storage.from_("casefiles").upload(
-                storage_path,
-                f,
-                file_options={"content-type": "text/plain"},
-                upsert=True
-            )
-
-        public_url = supabase.storage.from_("casefiles").get_public_url(storage_path)
-        return public_url
-    except Exception as e:
-        st.error(f"❌ Checklist upload failed: {e}")
-        return ""
-
-    local_path = Path("generated") / filename
-    storage_path = f"checklists/{filename}"
-
-    os.makedirs("generated", exist_ok=True)
-
-    try:
-        with open(local_path, "w", encoding="utf-8") as f:
-            f.write(checklist_text)
-
-        with open(local_path, "rb") as f:
-            supabase.storage.from_("casefiles").upload(
-                storage_path,
-                f,
-                {"content-type": "text/plain", "upsert": True}
-            )
-
-        public_url = supabase.storage.from_("casefiles").get_public_url(storage_path)
-        return public_url
-    except Exception as e:
-        st.error(f"❌ Checklist upload failed: {e}")
-        return ""
-
 # ---- Send Email ----
 def send_case_email(to_email, subject, body, attachments):
     from_email = "yourgmail@gmail.com"
@@ -274,14 +106,13 @@ def send_case_email(to_email, subject, body, attachments):
         st.error(f"❌ Email failed: {e}")
         return False
 
-# ---- Supabase Save ----
+# ---- Supabase Helpers ----
 def save_case_to_supabase(data):
     try:
         supabase.table("cases").insert([data]).execute()
     except Exception as e:
         st.error(f"Failed to save case: {e}")
 
-# ---- Supabase Load ----
 def get_saved_cases():
     try:
         response = supabase.table("cases").select("id, petitioner_name, created_at").order("created_at", desc=True).limit(10).execute()
@@ -296,7 +127,7 @@ def load_case_by_id(case_id):
     except:
         return None
 
-# ---- Sidebar: Load Previous Case ----
+# ---- Sidebar ----
 st.sidebar.title("📜 Saved Cases")
 saved_cases = get_saved_cases()
 if saved_cases:
@@ -306,7 +137,7 @@ if saved_cases:
         if loaded:
             st.session_state['loaded_case'] = loaded
 
-# ---- Streamlit Form ----
+# ---- Form ----
 with st.form("visa_form"):
     st.subheader("Petitioner Information")
     petitioner_first = st.text_input("Petitioner First Name")
@@ -343,8 +174,6 @@ Create a USCIS document checklist and draft form field summary for this immigrat
     cleaned_output = clean_text(output)
     checklist_path = generate_pdf(cleaned_output, "checklist.pdf")
 
-    checklist_txt_url = upload_checklist_text_to_supabase(petitioner_first, beneficiary_first, cleaned_output)
-
     form_data = {
         "form1[0].#subform[0].Pt1Line1_FamilyName[0]": petitioner_last,
         "form1[0].#subform[0].Pt1Line1_GivenName[0]": petitioner_first,
@@ -374,10 +203,12 @@ Create a USCIS document checklist and draft form field summary for this immigrat
     st.session_state["filled_path"] = filled_path
     st.session_state["zip_path"] = zip_path
 
-    
+    checklist_txt_url = ""
+    try:
+        checklist_txt_url = checklist_txt_url = upload_checklist_text_to_supabase(petitioner_first, beneficiary_first, cleaned_output)
+    except:
+        pass
 
-    
-    
     case_data = {
         "petitioner_name": f"{petitioner_first} {petitioner_last}".strip(),
         "beneficiary_name": f"{beneficiary_first} {beneficiary_last}".strip(),
@@ -390,14 +221,10 @@ Create a USCIS document checklist and draft form field summary for this immigrat
         "bucket_id": "casefiles"
     }
 
-
-
-    
-    st.write("Saving to Supabase:", case_data)
     save_case_to_supabase(case_data)
 
     st.subheader("✅ Suggested USCIS Checklist")
-    st.markdown("```{}```".format(output))
+    st.text_area("Checklist Preview", output, height=300)
 
     with open(checklist_path, "rb") as f:
         st.download_button("📄 Download Checklist PDF", f, file_name="ImmigrAI_Checklist.pdf")
