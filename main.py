@@ -82,29 +82,47 @@ def fill_form_pdf(input_pdf_path, output_pdf_path, data_dict):
     return output_pdf_path
 
 # ---- Send Email ----
+import requests
+
 def send_case_email(to_email, subject, body, attachments):
-    from_email = "yourgmail@gmail.com"
-    app_password = "your_app_password"
+    FROM_EMAIL = "checklist@immigrai.org"
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = from_email
-    msg["To"] = to_email
-    msg.set_content(body)
-
+    # Upload files to a public URL or use local paths for development
+    file_links_html = ""
     for filename, filepath in attachments.items():
-        with open(filepath, "rb") as f:
-            file_data = f.read()
-            msg.add_attachment(file_data, maintype="application", subtype="octet-stream", filename=filename)
+        # Optionally upload and replace with hosted links
+        file_links_html += f'<li><a href="https://jdkfxiftaleaxobenwiy.supabase.co/{filename}">{filename}</a></li>'
+
+    html_body = f"""
+    <p>{body}</p>
+    <p>Download your documents:</p>
+    <ul>{file_links_html}</ul>
+    """
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-            smtp.login(from_email, app_password)
-            smtp.send_message(msg)
-        return True
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "from": FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_body
+            }
+        )
+        if response.status_code == 200:
+            return True
+        else:
+            st.error(f"❌ Email failed: {response.status_code}, {response.text}")
+            return False
     except Exception as e:
-        st.error(f"❌ Email failed: {e}")
+        st.error(f"❌ Email error: {e}")
         return False
+
 
 # ---- Supabase Helpers ----
 def save_case_to_supabase(data):
