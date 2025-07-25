@@ -149,15 +149,15 @@ def upload_to_supabase(filepath, filename):
         with open(filepath, "rb") as f:
             file_data = f.read()
 
-        # Remove the file first (in case it exists)
+        # Delete existing file (simulate upsert)
         supabase.storage.from_("casefiles").remove([filename])
 
         # Upload file
         response = supabase.storage.from_("casefiles").upload(filename, file_data)
 
-        # Check if upload failed
-        if response.error:
-            st.error(f"Upload failed: {response.error.message}")
+        # Check if upload succeeded
+        if response.status_code != 200:
+            st.error("Upload failed.")
             return None
 
         # Get public URL
@@ -167,6 +167,7 @@ def upload_to_supabase(filepath, filename):
     except Exception as e:
         st.error(f"Upload error: {e}")
         return None
+
 
 
 
