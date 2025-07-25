@@ -265,33 +265,35 @@ Create a USCIS document checklist and draft form field summary for this immigrat
     st.download_button("📦 Download Full Case ZIP", zip_buffer, file_name="ImmigrAI_CasePackage.zip", mime="application/zip")
 
 # ---- Email Section ----
+# ---- Email Section ----
 if "checklist_path" in st.session_state and "filled_path" in st.session_state:
     st.markdown("---")
     st.subheader("📧 Email Package")
     email_to = st.text_input("Recipient Email")
     email_message = st.text_area("Optional Message", value="Attached is your immigration case package.")
-    send_email = st.button("Send Email")
+    send_email = st.button("Send Email")  # ✅ make sure this is here
 
-if send_email:
-    if not email_to:
-        st.warning("Please enter an email address.")
-    else:
-        attachments = {}
-        for name, path in {
-            "ImmigrAI_Checklist.pdf": st.session_state["checklist_path"],
-            "Filled_I130.pdf": st.session_state["filled_path"],
-            "ImmigrAI_CasePackage.zip": st.session_state["zip_path"],
-        }.items():
-            url = upload_to_supabase(path, name)
-            if url:
-                attachments[name] = url
+    if send_email:
+        if not email_to:
+            st.warning("Please enter an email address.")
+        else:
+            attachments = {}
+            for name, path in {
+                "ImmigrAI_Checklist.pdf": st.session_state["checklist_path"],
+                "Filled_I130.pdf": st.session_state["filled_path"],
+                "ImmigrAI_CasePackage.zip": st.session_state["zip_path"],
+            }.items():
+                url = upload_to_supabase(path, name)
+                if url:
+                    attachments[name] = url
 
-        success = send_case_email(
-            to_email=email_to,
-            subject="Your USCIS Immigration Package",
-            body=email_message,
-            attachments=attachments,
-        )
-        if success:
-            st.success("✅ Email sent successfully!")
+            success = send_case_email(
+                to_email=email_to,
+                subject="Your USCIS Immigration Package",
+                body=email_message,
+                attachments=attachments,
+            )
+            if success:
+                st.success("✅ Email sent successfully!")
+
 
