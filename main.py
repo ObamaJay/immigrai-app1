@@ -157,7 +157,10 @@ def upload_to_supabase(filepath, filename):
         supabase.storage.from_("casefiles").remove([filename])
 
         # Upload file
-        response = supabase.storage.from_("casefiles").upload(filename, file_data,  file_options={"content-type": "application/pdf"})
+        response = supabase.storage.from_("casefiles").upload(
+            filename, file_data
+        )
+
 
         # Check if the upload failed based on type or value
         if response is None:
@@ -166,6 +169,8 @@ def upload_to_supabase(filepath, filename):
 
         # Confirm by checking if public URL is returned
         public_url = supabase.storage.from_("casefiles").get_public_url(filename)
+        if public_url:
+            public_url += "?download_true"
         if not public_url:
             st.error("Upload failed: No public URL returned.")
             return None
