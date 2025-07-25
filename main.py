@@ -82,7 +82,7 @@ def fill_form_pdf(input_pdf_path, output_pdf_path, data_dict):
                         annotation.update({PdfReader.PdfName('/V'): f"{data_dict[key]}"})
     PdfWriter().write(output_pdf_path, pdf)
     with open(output_pdf_path, "rb") as f:
-    f.read()  # force flush
+        f.read()  # force flush
     return output_pdf_path
 
 # ---- Send Email ----
