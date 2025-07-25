@@ -157,7 +157,7 @@ def upload_to_supabase(filepath, filename):
         supabase.storage.from_("casefiles").remove([filename])
 
         # Upload file
-        responde = supabase.storage.from_("casefiles").upload(filename, file_data,  file_options={"content-type": "application/pdf"})
+        response = supabase.storage.from_("casefiles").upload(filename, file_data,  file_options={"content-type": "application/pdf"})
 
         # Check if the upload failed based on type or value
         if response is None:
