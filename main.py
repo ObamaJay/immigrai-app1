@@ -65,6 +65,8 @@ def generate_pdf(text, filename="checklist.pdf"):
     os.makedirs("generated", exist_ok=True)
     pdf_path = os.path.join("generated", filename)
     pdf.output(pdf_path)
+    with open(pdf_path, "rb") as f:
+        f.read()  # force OS to finalize write
     return pdf_path
 
 # ---- Fill Form PDF ----
@@ -79,6 +81,8 @@ def fill_form_pdf(input_pdf_path, output_pdf_path, data_dict):
                     if key in data_dict:
                         annotation.update({PdfReader.PdfName('/V'): f"{data_dict[key]}"})
     PdfWriter().write(output_pdf_path, pdf)
+    with open(output_pdf_path, "rb") as f:
+    f.read()  # force flush
     return output_pdf_path
 
 # ---- Send Email ----
@@ -245,6 +249,9 @@ Create a USCIS document checklist and draft form field summary for this immigrat
     zip_path = os.path.join("generated", "ImmigrAI_CasePackage.zip")
     with open(zip_path, "wb") as f:
         f.write(zip_buffer.getvalue())
+        f.flush()
+        os.fsync(f.fileno())
+
 
     st.session_state["checklist_text"] = output
     st.session_state["checklist_path"] = checklist_path
