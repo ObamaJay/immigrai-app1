@@ -88,11 +88,9 @@ def send_case_email(to_email, subject, body, attachments):
     FROM_EMAIL = "checklist@immigrai.org"
     RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-    # Upload files to a public URL or use local paths for development
     file_links_html = ""
-    for filename, filepath in attachments.items():
-        # Optionally upload and replace with hosted links
-        file_links_html += f'<li><a href="https://jdkfxiftaleaxobenwiy.supabase.co/{filename}">{filename}</a></li>'
+    for filename, public_url in attachments.items():
+        file_links_html += f'<li><a href="{public_url}">{filename}</a></li>'
 
     html_body = f"""
     <p>{body}</p>
@@ -124,6 +122,7 @@ def send_case_email(to_email, subject, body, attachments):
         return False
 
 
+
 # ---- Supabase Helpers ----
 def save_case_to_supabase(data):
     try:
@@ -144,6 +143,21 @@ def load_case_by_id(case_id):
         return response.data[0] if response.data else None
     except:
         return None
+   
+def upload_to_supabase(filepath, filename):
+    try:
+        with open(filepath, "rb") as f:
+            file_data = f.read()
+        result = supabase.storage.from_("casefiles").upload(filename, file_data, {"upsert": True})
+        if result.get("error"):
+            st.error(f"Upload failed: {result['error']['message']}")
+            return None
+        public_url = supabase.storage.from_("casefiles").get_public_url(filename)
+        return public_url
+    except Exception as e:
+        st.error(f"Upload error: {e}")
+        return None
+
 
 # ---- Sidebar ----
 st.sidebar.title("📜 Saved Cases")
@@ -262,11 +276,16 @@ if "checklist_path" in st.session_state and "filled_path" in st.session_state:
         if not email_to:
             st.warning("Please enter an email address.")
         else:
-            attachments = {
+           attachments = {}
+           for name, path in {
                 "ImmigrAI_Checklist.pdf": st.session_state["checklist_path"],
                 "Filled_I130.pdf": st.session_state["filled_path"],
                 "ImmigrAI_CasePackage.zip": st.session_state["zip_path"],
-            }
+           }.items():
+                url = upload_to_supabase(path, name)
+                if url:
+                    attachments[name] = url
+
             success = send_case_email(
                 to_email=email_to,
                 subject="Your USCIS Immigration Package",
