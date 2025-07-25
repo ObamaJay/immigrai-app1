@@ -148,7 +148,7 @@ def upload_to_supabase(filepath, filename):
     try:
         with open(filepath, "rb") as f:
             file_data = f.read()
-        result = supabase.storage.from_("casefiles").upload(filename, file_data, {"upsert": True})
+        result = supabase.storage.from_("casefiles").upload(filename, file_data, upsert=True)
         if result.get("error"):
             st.error(f"Upload failed: {result['error']['message']}")
             return None
