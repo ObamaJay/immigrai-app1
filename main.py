@@ -170,7 +170,8 @@ def upload_to_supabase(filepath, filename):
         # Confirm by checking if public URL is returned
         public_url = supabase.storage.from_("casefiles").get_public_url(filename)
         if public_url:
-            public_url += "?download_true"
+            public_url += "?download=true"
+    
         if not public_url:
             st.error("Upload failed: No public URL returned.")
             return None
