@@ -94,7 +94,7 @@ def send_case_email(to_email, subject, body, attachments):
 
     file_links_html = ""
     for filename, public_url in attachments.items():
-        file_links_html += f'<li><a href="{public_url}">{filename}</a></li>'
+        file_links_html += f'<li><a href="{public_url}" download="{filename}">{filename}</a></li>'
 
     html_body = f"""
     <p>{body}</p>
