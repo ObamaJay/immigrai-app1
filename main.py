@@ -168,7 +168,9 @@ def upload_to_supabase(filepath, filename):
             return None
 
         # Confirm by checking if public URL is returned
-        public_url = supabase.storage.from_("casefiles").get_public_url(filename)
+        signed_url_resp = supabase.storage.from_('casefiles').create_signed_url(filename, 3600)
+        public_url = signed_url_resp['signedURL']
+
         if public_url:
             public_url += "?download=true"
     
