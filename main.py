@@ -150,33 +150,35 @@ def load_case_by_id(case_id):
    
 def upload_to_supabase(filepath, filename):
     try:
+        # Step 1: Read PDF binary content
         with open(filepath, "rb") as f:
             file_data = f.read()
 
-        # Delete existing file if it exists
+        # Step 2: Delete existing file
         supabase.storage.from_("casefiles").remove([filename])
 
-        # Upload file
-        supabase.storage.from_("casefiles").upload(filename, file_data)
+        # Step 3: Upload file properly
+        upload_response = supabase.storage.from_("casefiles").upload(
+            filename, file_data, {"content-type": "application/pdf"}
+        )
 
-        # Generate signed URL (valid 1 hour)
+        if not upload_response or not isinstance(upload_response, dict):
+            st.error("Upload failed: Invalid upload response.")
+            return None
+
+        # Step 4: Create signed URL with forced download
         signed = supabase.storage.from_("casefiles").create_signed_url(filename, 3600)
-
         if not signed or "signedURL" not in signed:
             st.error("Upload failed: No signed URL returned.")
             return None
 
-        # Handle both full and relative URLs + force download
-        if signed["signedURL"].startswith("http"):
-            public_url = signed["signedURL"] + "&response-content-disposition=attachment"
-        else:
-            public_url = st.secrets["SUPABASE_URL"].rstrip("/") + signed["signedURL"] + "&response-content-disposition=attachment"
-
-        return public_url
+        signed_url = SUPABASE_URL.rstrip("/") + signed["signedURL"] + "&response-content-disposition=attachment"
+        return signed_url
 
     except Exception as e:
         st.error(f"Upload error: {e}")
         return None
+
 
 
 
