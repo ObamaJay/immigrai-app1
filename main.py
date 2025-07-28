@@ -167,7 +167,7 @@ def upload_to_supabase(filepath, filename):
             return None
 
         # Full working URL = your domain + signed path
-        public_url = SUPABASE_URL + signed['signedURL']
+        public_url = SUPABASE_URL.rstrip("/") + signed["signedURL"]
         return public_url
 
     except Exception as e:
