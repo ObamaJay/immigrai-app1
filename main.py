@@ -164,19 +164,19 @@ def upload_to_supabase(filepath, filename):
             {"content-type": "application/pdf"}
         )
 
-        # Step 4: Check upload response validity
-        if not upload_response or not isinstance(upload_response, dict):
+        # ✅ FIX: Check that upload_response is a string (path), not dict
+        if not upload_response or not isinstance(upload_response, str):
             st.error("Upload failed: Invalid upload response.")
             return None
 
-        # Step 5: Generate signed URL
+        # Step 4: Generate signed URL
         signed = supabase.storage.from_("casefiles").create_signed_url(filename, 3600)
 
         if not signed or "signedURL" not in signed:
             st.error("Upload failed: No signed URL returned.")
             return None
 
-        # Step 6: Assemble full download link
+        # Step 5: Assemble final download link
         signed_url = signed["signedURL"]
         if signed_url.startswith("/"):
             signed_url = SUPABASE_URL.rstrip("/") + signed_url
