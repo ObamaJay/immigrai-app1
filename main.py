@@ -166,13 +166,19 @@ def upload_to_supabase(filepath, filename):
             st.error("Upload failed: No signed URL returned.")
             return None
 
-        # Full working URL = your domain + signed path
-        public_url = SUPABASE_URL.rstrip("/") + signed["signedURL"]
+        # Build full public URL
+        base_url = st.secrets["SUPABASE_URL"].rstrip("/")
+        public_url = base_url + signed["signedURL"]
+
+        # OPTIONAL: force download
+        public_url += "&download=true"
+
         return public_url
 
     except Exception as e:
         st.error(f"Upload error: {e}")
         return None
+
 
 
 
