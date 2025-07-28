@@ -153,29 +153,27 @@ def upload_to_supabase(filepath, filename):
         with open(filepath, "rb") as f:
             file_data = f.read()
 
-        # Delete file if it already exists
+        # Delete existing file (if exists)
         supabase.storage.from_("casefiles").remove([filename])
 
-        # Upload file
-        response = supabase.storage.from_("casefiles").upload(filename, file_data)
-        if response is None:
-            st.error("Upload failed: No response from Supabase.")
+        # Upload new file
+        supabase.storage.from_("casefiles").upload(filename, file_data)
+
+        # Create signed URL (valid 1 hour)
+        signed = supabase.storage.from_("casefiles").create_signed_url(filename, 3600)
+
+        if not signed or "signedURL" not in signed:
+            st.error("Upload failed: No signed URL returned.")
             return None
 
-        # Generate signed URL (valid 1 hour)
-        signed_url_resp = supabase.storage.from_('casefiles').create_signed_url(filename, 3600)
-        if not signed_url_resp or "signedURL" not in signed_url_resp:
-            st.error("Upload failed: Could not generate signed URL.")
-            return None
-
-        token = signed_url_resp["signedURL"].split("token=")[-1]
-        public_url = f"{SUPABASE_URL}/storage/v1/object/sign/casefiles/{filename}?token={token}"
-
+        # Full working URL = your domain + signed path
+        public_url = f"{SUPABASE_URL}{signed['signedURL']}"
         return public_url
 
     except Exception as e:
         st.error(f"Upload error: {e}")
         return None
+
 
 
 
