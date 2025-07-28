@@ -150,40 +150,44 @@ def load_case_by_id(case_id):
    
 def upload_to_supabase(filepath, filename):
     try:
-        file_path_in_bucket = f"casefiles/{filename}"
-
-        # Step 1: Read file
+        # Step 1: Read PDF binary content
         with open(filepath, "rb") as f:
             file_data = f.read()
 
-        # Step 2: Try deleting old file (suppress errors if it doesn't exist)
-        try:
-            supabase.storage.from_("casefiles").remove([file_path_in_bucket])
-        except Exception:
-            pass
+        # Step 2: Delete existing file (if any)
+        supabase.storage.from_("casefiles").remove([filename])
 
         # Step 3: Upload new file
         upload_response = supabase.storage.from_("casefiles").upload(
-            file_path_in_bucket, file_data, {"content-type": "application/pdf"}
+            filename,
+            file_data,
+            {"content-type": "application/pdf"}
         )
 
-        # ✅ Check for error field (works with Supabase client)
-        if hasattr(upload_response, "error") and upload_response.error:
-            st.error(f"Upload failed: {upload_response.error.message}")
+        # Step 4: Check upload response validity
+        if not upload_response or not isinstance(upload_response, dict):
+            st.error("Upload failed: Invalid upload response.")
             return None
 
-        # Step 4: Create signed download link
-        signed = supabase.storage.from_("casefiles").create_signed_url(file_path_in_bucket, 3600)
+        # Step 5: Generate signed URL
+        signed = supabase.storage.from_("casefiles").create_signed_url(filename, 3600)
+
         if not signed or "signedURL" not in signed:
             st.error("Upload failed: No signed URL returned.")
             return None
 
-        signed_url = SUPABASE_URL.rstrip("/") + signed["signedURL"] + "&response-content-disposition=attachment"
+        # Step 6: Assemble full download link
+        signed_url = signed["signedURL"]
+        if signed_url.startswith("/"):
+            signed_url = SUPABASE_URL.rstrip("/") + signed_url
+        signed_url += "&response-content-disposition=attachment"
+
         return signed_url
 
     except Exception as e:
         st.error(f"Upload error: {e}")
         return None
+
 
 
 
