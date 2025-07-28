@@ -150,16 +150,21 @@ def load_case_by_id(case_id):
    
 def upload_to_supabase(filepath, filename):
     try:
+        file_path_in_bucket = f"casefiles/{filename}"
+
         # Step 1: Read PDF binary content
         with open(filepath, "rb") as f:
             file_data = f.read()
 
         # Step 2: Delete existing file
-        supabase.storage.from_("casefiles").remove([filename])
+        try:
+            supabase.storage.from_("casefiles").remove([file_path_in_bucket])
+        except Exception:
+            pass  # In case file doesn't exist
 
         # Step 3: Upload file properly
         upload_response = supabase.storage.from_("casefiles").upload(
-            filename, file_data, {"content-type": "application/pdf"}
+            file_path_in_bucket, file_data, {"content-type": "application/pdf"}
         )
 
         if not upload_response or not isinstance(upload_response, dict):
@@ -167,7 +172,7 @@ def upload_to_supabase(filepath, filename):
             return None
 
         # Step 4: Create signed URL with forced download
-        signed = supabase.storage.from_("casefiles").create_signed_url(filename, 3600)
+        signed = supabase.storage.from_("casefiles").create_signed_url(file_path_in_bucket, 3600)
         if not signed or "signedURL" not in signed:
             st.error("Upload failed: No signed URL returned.")
             return None
