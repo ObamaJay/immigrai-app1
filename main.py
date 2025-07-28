@@ -168,9 +168,10 @@ def upload_to_supabase(filepath, filename):
 
         # ✅ Construct correct full URL (handle both relative or full format)
         if signed["signedURL"].startswith("http"):
-            public_url = signed["signedURL"]
+            public_url = signed["signedURL"] + "&response-content-disposition=attachment"
         else:
-            public_url = st.secrets["SUPABASE_URL"].rstrip("/") + signed["signedURL"]
+            public_url = st.secrets["SUPABASE_URL"].rstrip("/") + signed["signedURL"] + "&response-content-disposition=attachment"
+
 
         # ❌ Do NOT append "&download=true" — breaks filename
         return public_url
