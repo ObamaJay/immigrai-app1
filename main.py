@@ -153,32 +153,31 @@ def upload_to_supabase(filepath, filename):
         with open(filepath, "rb") as f:
             file_data = f.read()
 
-        # Delete existing file if present
+        # Delete existing file if it exists
         supabase.storage.from_("casefiles").remove([filename])
 
         # Upload file
         supabase.storage.from_("casefiles").upload(filename, file_data)
 
-        # Create signed URL (valid 1 hour)
+        # Generate signed URL (valid 1 hour)
         signed = supabase.storage.from_("casefiles").create_signed_url(filename, 3600)
 
         if not signed or "signedURL" not in signed:
             st.error("Upload failed: No signed URL returned.")
             return None
 
-        # ✅ Construct correct full URL (handle both relative or full format)
+        # Handle both full and relative URLs + force download
         if signed["signedURL"].startswith("http"):
             public_url = signed["signedURL"] + "&response-content-disposition=attachment"
         else:
             public_url = st.secrets["SUPABASE_URL"].rstrip("/") + signed["signedURL"] + "&response-content-disposition=attachment"
 
-
-        # ❌ Do NOT append "&download=true" — breaks filename
         return public_url
 
     except Exception as e:
         st.error(f"Upload error: {e}")
         return None
+
 
 
 
