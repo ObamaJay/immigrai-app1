@@ -252,4 +252,5 @@ if submit:
             st.markdown(f"[Click here to download your checklist PDF]({signed_url})", unsafe_allow_html=True)
         else:
             st.markdown("### 🔒 Unlock Full Checklist PDF")
-            st.link_button("💳 Unlock for $19", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01")  # Replace with live Stripe link
+            st.link_button("💳 Unlock Full Checklist PDF ($19)", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM0")
+
