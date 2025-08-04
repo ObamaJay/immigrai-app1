@@ -59,7 +59,8 @@ if submit:
         except Exception as e:
             print("Lead log failed:", e)
 
-       def clean_text(text):
+        # Sanitize text to avoid UnicodeEncodeError in fpdf
+        def clean_text(text):
             return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
 
         # Generate PDF
@@ -67,14 +68,17 @@ if submit:
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.set_font("Arial", size=12)
-
         safe_text = clean_text(checklist_text)
         for line in safe_text.split("\n"):
             pdf.multi_cell(0, 10, line)
-
         pdf_output = BytesIO()
         pdf.output(pdf_output)
         pdf_output.seek(0)
+
+        # Upload to Supabase
+        timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+        file_name = f"{visa_type}_{timestamp}.pdf"
+        signed_url = None
 
         try:
             supabase.storage.from_("casefiles").upload(
@@ -127,4 +131,4 @@ if submit:
             st.markdown(f"[Click here to download your checklist PDF]({signed_url})", unsafe_allow_html=True)
         else:
             st.markdown("### 🔒 Unlock Full Checklist PDF")
-            st.link_button("💳 Unlock Full Checklist PDF ($19)", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01")  # Replace with your live link
+            st.link_button("💳 Unlock Full Checklist PDF ($19)", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01")  # Replace with your live Stripe URL
