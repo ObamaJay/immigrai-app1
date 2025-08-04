@@ -253,4 +253,3 @@ if submit:
         else:
             st.markdown("### 🔒 Unlock Full Checklist PDF")
             st.link_button("💳 Unlock for $19", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01")  # Replace with live Stripe link
-")  # Replace with live Stripe link
