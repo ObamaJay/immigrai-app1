@@ -73,7 +73,7 @@ if submit:
             pdf.multi_cell(0, 10, line)
         pdf_data = pdf.output(dest='S').encode('latin1')
         pdf_output = BytesIO(pdf_data)
-        )
+        
 
         # Upload to Supabase
         timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
