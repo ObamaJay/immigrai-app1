@@ -71,9 +71,9 @@ if submit:
         safe_text = clean_text(checklist_text)
         for line in safe_text.split("\n"):
             pdf.multi_cell(0, 10, line)
-        pdf_output = BytesIO()
-        pdf.output(pdf_output)
-        pdf_output.seek(0)
+        pdf_data = pdf.output(dest='S').encode('latin1')
+        pdf_output = BytesIO(pdf_data)
+        )
 
         # Upload to Supabase
         timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
