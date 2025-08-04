@@ -5,6 +5,7 @@ from io import BytesIO
 import datetime
 from supabase import create_client
 import requests
+import unicodedata
 
 # ---- Page Config ----
 st.set_page_config(page_title="ImmigrAI – AI USCIS Checklist", layout="centered")
@@ -58,21 +59,22 @@ if submit:
         except Exception as e:
             print("Lead log failed:", e)
 
+       def clean_text(text):
+            return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+
         # Generate PDF
         pdf = FPDF()
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.set_font("Arial", size=12)
-        for line in checklist_text.split("\n"):
+
+        safe_text = clean_text(checklist_text)
+        for line in safe_text.split("\n"):
             pdf.multi_cell(0, 10, line)
+
         pdf_output = BytesIO()
         pdf.output(pdf_output)
         pdf_output.seek(0)
-
-        # Upload to Supabase
-        timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-        file_name = f"{visa_type}_{timestamp}.pdf"
-        signed_url = None
 
         try:
             supabase.storage.from_("casefiles").upload(
