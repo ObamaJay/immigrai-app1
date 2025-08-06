@@ -57,9 +57,10 @@ if submit:
                 "created_at": datetime.datetime.utcnow().isoformat()
             }).execute()
         except Exception as e:
-            print("Lead log failed:", e)
+            st.warning("⚠️ Could not log lead to Supabase.")
+            st.exception(e)
 
-        # Sanitize text to avoid UnicodeEncodeError in fpdf
+        # Clean text to remove unsupported unicode
         def clean_text(text):
             return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
 
@@ -73,27 +74,35 @@ if submit:
             pdf.multi_cell(0, 10, line)
         pdf_data = pdf.output(dest='S').encode('latin1')
         pdf_output = BytesIO(pdf_data)
-        
 
-        # Upload to Supabase
+        # Upload to Supabase with full debug output
         timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
         file_name = f"{visa_type}_{timestamp}.pdf"
         signed_url = None
 
         try:
-            supabase.storage.from_("casefiles").upload(
+            upload_response = supabase.storage.from_("casefiles").upload(
                 path=f"casefiles/{file_name}",
                 file=pdf_output,
                 file_options={"content-type": "application/pdf"}
             )
-            signed_url = supabase.storage.from_("casefiles").create_signed_url(
-                path=f"casefiles/{file_name}", expires_in=3600
-            ).get("signedURL", "")
-        except Exception as e:
-            print("❌ Supabase upload error:", str(e))
-            st.warning("⚠️ Could not upload your checklist. You may still receive it via email.")
+            st.text("✅ Upload response:")
+            st.json(upload_response)
 
-        # Email via Resend
+            signed_response = supabase.storage.from_("casefiles").create_signed_url(
+                path=f"casefiles/{file_name}", expires_in=3600
+            )
+            st.text("✅ Signed URL response:")
+            st.json(signed_response)
+
+            signed_url = signed_response.get("signedURL", "")
+        except Exception as e:
+            st.error("❌ Upload failed.")
+            st.text("Exception details:")
+            st.exception(e)
+            signed_url = None
+
+        # Send email via Resend if upload succeeded
         if signed_url:
             try:
                 response = requests.post(
@@ -118,10 +127,10 @@ if submit:
                     st.success("📧 Checklist emailed to you!")
                 else:
                     st.warning("⚠️ Email failed — but your download link is still below.")
-                    print("Resend error:", response.text)
+                    st.text(response.text)
             except Exception as e:
-                print("❌ Resend exception:", str(e))
                 st.warning("Email delivery failed.")
+                st.exception(e)
         else:
             st.warning("📤 Email skipped due to upload issue.")
 
@@ -131,4 +140,4 @@ if submit:
             st.markdown(f"[Click here to download your checklist PDF]({signed_url})", unsafe_allow_html=True)
         else:
             st.markdown("### 🔒 Unlock Full Checklist PDF")
-            st.link_button("💳 Unlock Full Checklist PDF ($19)", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01")  # Replace with your live Stripe URL
+            st.link_button("💳 Unlock Full Checklist PDF ($19)", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM0")  # Replace with your live Stripe URL
