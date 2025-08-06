@@ -80,8 +80,13 @@ if submit:
         timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
         file_name = f"{visa_type}_{timestamp}.pdf"
         temp_path = f"/tmp/{file_name}"
-        with open(temp_path, "wb") as f:
-            f.write(pdf_data)
+        with open(temp_path, "rb") as f:
+            upload_response = supabase.storage.from_("casefiles").upload(
+                path=f"casefiles/{file_name}",
+                file=f,
+                file_options={"content-type": "application/pdf"}
+        )
+
 
         signed_url = None
         try:
