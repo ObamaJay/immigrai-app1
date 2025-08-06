@@ -6,6 +6,8 @@ import datetime
 from supabase import create_client
 import requests
 import unicodedata
+import os
+from pathlib import Path
 
 # ---- Page Config ----
 st.set_page_config(page_title="ImmigrAI – AI USCIS Checklist", layout="centered")
@@ -45,9 +47,9 @@ if submit:
         st.success("✅ Checklist Preview")
         st.markdown(checklist_text)
 
-        # Save lead to Supabase
+        # Save to Supabase table "cases"
         try:
-            supabase.table("leads").insert({
+            supabase.table("cases").insert({
                 "email": email,
                 "petitioner_name": petitioner_name,
                 "beneficiary_name": beneficiary_name,
@@ -57,14 +59,14 @@ if submit:
                 "created_at": datetime.datetime.utcnow().isoformat()
             }).execute()
         except Exception as e:
-            st.warning("⚠️ Could not log lead to Supabase.")
+            st.warning("⚠️ Could not save case to database.")
             st.exception(e)
 
-        # Clean text to remove unsupported unicode
+        # Clean text for PDF
         def clean_text(text):
             return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
 
-        # Generate PDF
+        # Create PDF
         pdf = FPDF()
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=15)
@@ -73,17 +75,19 @@ if submit:
         for line in safe_text.split("\n"):
             pdf.multi_cell(0, 10, line)
         pdf_data = pdf.output(dest='S').encode('latin1')
-        pdf_output = BytesIO(pdf_data)
 
-        # Upload to Supabase with full debug output
+        # Save PDF to a temporary file
         timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
         file_name = f"{visa_type}_{timestamp}.pdf"
-        signed_url = None
+        temp_path = f"/tmp/{file_name}"
+        with open(temp_path, "wb") as f:
+            f.write(pdf_data)
 
+        signed_url = None
         try:
             upload_response = supabase.storage.from_("casefiles").upload(
                 path=f"casefiles/{file_name}",
-                file=pdf_output,
+                file=Path(temp_path),
                 file_options={"content-type": "application/pdf"}
             )
             st.text("✅ Upload response:")
@@ -96,13 +100,15 @@ if submit:
             st.json(signed_response)
 
             signed_url = signed_response.get("signedURL", "")
+            os.remove(temp_path)
+
         except Exception as e:
             st.error("❌ Upload failed.")
             st.text("Exception details:")
             st.exception(e)
             signed_url = None
 
-        # Send email via Resend if upload succeeded
+        # Send email via Resend
         if signed_url:
             try:
                 response = requests.post(
@@ -134,7 +140,7 @@ if submit:
         else:
             st.warning("📤 Email skipped due to upload issue.")
 
-        # Final download section
+        # Show download or fallback
         if signed_url:
             st.markdown("### 📥 Download Your Checklist")
             st.markdown(f"[Click here to download your checklist PDF]({signed_url})", unsafe_allow_html=True)
