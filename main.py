@@ -8,6 +8,8 @@ import requests
 import unicodedata
 import os
 from pathlib import Path
+import tempfile
+
 
 # ---- Page Config ----
 st.set_page_config(page_title="ImmigrAI – AI USCIS Checklist", layout="centered")
@@ -71,21 +73,14 @@ if submit:
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.set_font("Arial", size=12)
-        safe_text = clean_text(checklist_text)
-        for line in safe_text.split("\n"):
+        for line in checklist_text.split("\n"):
             pdf.multi_cell(0, 10, line)
-        pdf_data = pdf.output(dest='S').encode('latin1')
 
-        # Save PDF to a temporary file
-        timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-        file_name = f"{visa_type}_{timestamp}.pdf"
-        temp_path = f"/tmp/{file_name}"
-        with open(temp_path, "rb") as f:
-            upload_response = supabase.storage.from_("casefiles").upload(
-                path=f"casefiles/{file_name}",
-                file=f,
-                file_options={"content-type": "application/pdf"}
-        )
+        # Save to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            pdf.output(tmp.name)
+            temp_path = tmp.name
+
 
 
         signed_url = None
