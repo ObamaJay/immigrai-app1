@@ -1,26 +1,21 @@
 import streamlit as st
 from openai import OpenAI
 from fpdf import FPDF
-from io import BytesIO
 import datetime
 from supabase import create_client
 import requests
-import unicodedata
-import os
-from pathlib import Path
 import tempfile
+import os
 
-
-# ---- Page Config ----
+# ---------------- Config ----------------
 st.set_page_config(page_title="ImmigrAI – AI USCIS Checklist", layout="centered")
+DEBUG = False  # flip to True to see raw responses/errors
 
-# ---- Load Secrets ----
+# ---------------- Secrets / Clients ----------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_SERVICE_ROLE_KEY"])
 
-# ---- UI ----
+# ---------------- UI ----------------
 st.title("📄 ImmigrAI: Smart USCIS Checklist Generator")
 st.markdown("Get your personalized immigration checklist in seconds. Free preview, $19 for full download + email.")
 
@@ -36,116 +31,122 @@ with st.form("checklist_form"):
     visa_type = st.selectbox("Visa Type", ["I-130 (Family)", "I-129F (Fiancé)", "I-485 (Adjustment)", "Other"])
     submit = st.form_submit_button("🔍 Generate Checklist")
 
+def remove_non_latin1(text: str) -> str:
+    # fpdf (classic) is latin-1; strip emojis/curly quotes/etc
+    return text.encode("latin1", "ignore").decode("latin1")
+
 if submit:
     with st.spinner("🧠 Generating checklist..."):
-        prompt = f"Create a detailed USCIS document checklist for a {visa_type} visa based on the relationship: {relationship}. Petitioner: {petitioner_name}, Beneficiary: {beneficiary_name}."
-        response = client.chat.completions.create(
+        prompt = (
+            f"Create a detailed USCIS document checklist for a {visa_type} visa based on the relationship: "
+            f"{relationship}. Petitioner: {petitioner_name}, Beneficiary: {beneficiary_name}."
+        )
+        resp = client.chat.completions.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
         )
-        checklist_text = response.choices[0].message.content.strip()
+        checklist_text = resp.choices[0].message.content.strip()
 
-        st.success("✅ Checklist Preview")
-        st.markdown(checklist_text)
+    st.success("✅ Checklist Preview")
+    st.markdown(checklist_text)
 
-        # Save to Supabase table "cases"
-        try:
-            supabase.table("cases").insert({
-                "email": email,
-                "petitioner_name": petitioner_name,
-                "beneficiary_name": beneficiary_name,
-                "relationship": relationship,
-                "visa_type": visa_type,
-                "checklist_text": checklist_text,
-                "created_at": datetime.datetime.utcnow().isoformat()
-            }).execute()
-        except Exception as e:
-            st.warning("⚠️ Could not save case to database.")
-            st.exception(e)
+    # ---------- Save to DB (table: leads) ----------
+    try:
+        supabase.table("leads").insert({
+            "email": email,
+            "petitioner_name": petitioner_name,
+            "beneficiary_name": beneficiary_name,
+            "relationship": relationship,
+            "visa_type": visa_type,
+            "checklist_text": checklist_text,
+            "created_at": datetime.datetime.utcnow().isoformat()
+        }).execute()
+    except Exception as e:
+        st.warning("⚠️ Could not save lead to database.")
+        if DEBUG: st.exception(e)
 
-        # Clean text for PDF
-        def clean_text(text):
-            return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    # ---------- Build PDF (latin-1 safe) ----------
+    cleaned = remove_non_latin1(checklist_text)
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_font("Arial", size=12)
+    for line in cleaned.split("\n"):
+        pdf.multi_cell(0, 10, line)
 
-        # Create PDF
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.add_font("ArialUnicode", "", "ArialUnicodeMS.ttf", uni=True)
-        pdf.set_font("ArialUnicode", size=12)
+    # write to a temp file for upload
+    timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    file_name = f"{visa_type}_{timestamp}.pdf"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        pdf.output(tmp.name)
+        temp_path = tmp.name
 
-        for line in checklist_text.split("\n"):
-            pdf.multi_cell(0, 10, line)
-
-        # Save to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            pdf.output(tmp.name)
-            temp_path = tmp.name
-
-
-
-        signed_url = None
-        try:
-            upload_response = supabase.storage.from_("casefiles").upload(
+    # ---------- Upload to Supabase Storage ----------
+    signed_url = None
+    try:
+        with open(temp_path, "rb") as f:
+            upload_resp = supabase.storage.from_("casefiles").upload(
                 path=f"casefiles/{file_name}",
-                file=Path(temp_path),
+                file=f,
                 file_options={"content-type": "application/pdf"}
             )
-            st.text("✅ Upload response:")
-            st.json(upload_response)
+        if DEBUG:
+            st.text("Upload response:")
+            st.write(upload_resp)
 
-            signed_response = supabase.storage.from_("casefiles").create_signed_url(
-                path=f"casefiles/{file_name}", expires_in=3600
+        signed_resp = supabase.storage.from_("casefiles").create_signed_url(
+            path=f"casefiles/{file_name}",
+            expires_in=3600
+        )
+        if DEBUG:
+            st.text("Signed URL response:")
+            st.write(signed_resp)
+
+        signed_url = signed_resp.get("signedURL", "")
+    except Exception as e:
+        st.warning("⚠️ Could not upload your checklist. You may still receive it via email.")
+        if DEBUG: st.exception(e)
+    finally:
+        try: os.remove(temp_path)
+        except Exception: pass
+
+    # ---------- Email via Resend (only if upload worked) ----------
+    if signed_url:
+        try:
+            r = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {st.secrets['RESEND_API_KEY']}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "from": st.secrets["FROM_EMAIL"],
+                    "to": email,
+                    "subject": "Your AI-generated USCIS Checklist",
+                    "html": (
+                        f"<p>Hi {remove_non_latin1(petitioner_name)},</p>"
+                        f"<p>Here is your personalized checklist for your {remove_non_latin1(visa_type)} visa application.</p>"
+                        f'<p><a href="{signed_url}">📥 Click here to download your checklist PDF</a></p>'
+                        "<br><p>Best,<br>The ImmigrAI Team</p>"
+                    ),
+                }
             )
-            st.text("✅ Signed URL response:")
-            st.json(signed_response)
-
-            signed_url = signed_response.get("signedURL", "")
-            os.remove(temp_path)
-
+            if r.status_code == 202:
+                st.success("📧 Checklist emailed to you!")
+            else:
+                st.warning("⚠️ Email failed — but your download link is still below.")
+                if DEBUG: st.text(r.text)
         except Exception as e:
-            st.error("❌ Upload failed.")
-            st.text("Exception details:")
-            st.exception(e)
-            signed_url = None
+            st.warning("Email delivery failed.")
+            if DEBUG: st.exception(e)
+    else:
+        st.warning("📤 Email skipped due to upload issue.")
 
-        # Send email via Resend
-        if signed_url:
-            try:
-                response = requests.post(
-                    "https://api.resend.com/emails",
-                    headers={
-                        "Authorization": f"Bearer {st.secrets['RESEND_API_KEY']}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "from": st.secrets["FROM_EMAIL"],
-                        "to": email,
-                        "subject": "Your AI-generated USCIS Checklist",
-                        "html": f"""
-                            <p>Hi {petitioner_name},</p>
-                            <p>Here is your personalized checklist for your {visa_type} visa application.</p>
-                            <p><a href="{signed_url}">📥 Click here to download your checklist PDF</a></p>
-                            <br><p>Best,<br>The ImmigrAI Team</p>
-                        """
-                    }
-                )
-                if response.status_code == 202:
-                    st.success("📧 Checklist emailed to you!")
-                else:
-                    st.warning("⚠️ Email failed — but your download link is still below.")
-                    st.text(response.text)
-            except Exception as e:
-                st.warning("Email delivery failed.")
-                st.exception(e)
-        else:
-            st.warning("📤 Email skipped due to upload issue.")
-
-        # Show download or fallback
-        if signed_url:
-            st.markdown("### 📥 Download Your Checklist")
-            st.markdown(f"[Click here to download your checklist PDF]({signed_url})", unsafe_allow_html=True)
-        else:
-            st.markdown("### 🔒 Unlock Full Checklist PDF")
-            st.link_button("💳 Unlock Full Checklist PDF ($19)", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM0")  # Replace with your live Stripe URL
+    # ---------- Final download / CTA ----------
+    if signed_url:
+        st.markdown("### 📥 Download Your Checklist")
+        st.markdown(f"[Click here to download your checklist PDF]({signed_url})", unsafe_allow_html=True)
+    else:
+        st.markdown("### 🔒 Unlock Full Checklist PDF")
+        st.link_button("💳 Unlock Full Checklist PDF ($19)", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM0")  # replace with your live link
