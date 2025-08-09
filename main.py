@@ -9,7 +9,8 @@ import os
 
 # ---------------- Config ----------------
 st.set_page_config(page_title="ImmigrAI – AI USCIS Checklist", layout="centered")
-DEBUG = True  # flip to True to see raw responses/errors
+DEBUG = False                 # set True to show raw responses/errors
+TABLE_NAME = "leads"          # change to "cases" if you prefer that table
 
 # ---------------- Secrets / Clients ----------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -31,11 +32,12 @@ with st.form("checklist_form"):
     visa_type = st.selectbox("Visa Type", ["I-130 (Family)", "I-129F (Fiancé)", "I-485 (Adjustment)", "Other"])
     submit = st.form_submit_button("🔍 Generate Checklist")
 
-def remove_non_latin1(text: str) -> str:
-    # fpdf (classic) is latin-1; strip emojis/curly quotes/etc
+def strip_non_latin1(text: str) -> str:
+    # fpdf classic supports latin-1. Strip emojis/curly quotes/etc.
     return text.encode("latin1", "ignore").decode("latin1")
 
 if submit:
+    # ---------- Generate ----------
     with st.spinner("🧠 Generating checklist..."):
         prompt = (
             f"Create a detailed USCIS document checklist for a {visa_type} visa based on the relationship: "
@@ -51,9 +53,9 @@ if submit:
     st.success("✅ Checklist Preview")
     st.markdown(checklist_text)
 
-    # ---------- Save to DB (table: leads) ----------
+    # ---------- Save to DB ----------
     try:
-        supabase.table("leads").insert({
+        supabase.table(TABLE_NAME).insert({
             "email": email,
             "petitioner_name": petitioner_name,
             "beneficiary_name": beneficiary_name,
@@ -63,11 +65,11 @@ if submit:
             "created_at": datetime.datetime.utcnow().isoformat()
         }).execute()
     except Exception as e:
-        st.warning("⚠️ Could not save lead to database.")
+        st.warning("⚠️ Could not save to database.")
         if DEBUG: st.exception(e)
 
     # ---------- Build PDF (latin-1 safe) ----------
-    cleaned = remove_non_latin1(checklist_text)
+    cleaned = strip_non_latin1(checklist_text)
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -75,9 +77,9 @@ if submit:
     for line in cleaned.split("\n"):
         pdf.multi_cell(0, 10, line)
 
-    # write to a temp file for upload
     timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
     file_name = f"{visa_type}_{timestamp}.pdf"
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         pdf.output(tmp.name)
         temp_path = tmp.name
@@ -87,7 +89,7 @@ if submit:
     try:
         with open(temp_path, "rb") as f:
             upload_resp = supabase.storage.from_("casefiles").upload(
-                path=file_name,
+                path=file_name,  # no leading "casefiles/"
                 file=f,
                 file_options={"content-type": "application/pdf"}
             )
@@ -96,8 +98,7 @@ if submit:
             st.write(upload_resp)
 
         signed_resp = supabase.storage.from_("casefiles").create_signed_url(
-            path=file_name,
-            expires_in=3600
+            path=file_name, expires_in=3600
         )
         if DEBUG:
             st.text("Signed URL response:")
@@ -111,27 +112,23 @@ if submit:
         try: os.remove(temp_path)
         except Exception: pass
 
-    # ---------- Email via Resend (only if upload worked) ----------
-    # ---------- Email via Resend (only if upload worked) ----------
+    # ---------- Email via Resend ----------
     if signed_url:
         try:
             from_addr = st.secrets.get("FROM_EMAIL", "onboarding@resend.dev")
-            # Use a proper display name + verified sender
             from_header = f"ImmigrAI <{from_addr}>"
 
             payload = {
-                "from": from_header,               # must be a verified domain email
-                "to": [email],                     # array is fine
+                "from": from_header,
+                "to": [email],
                 "subject": "Your ImmigrAI USCIS Checklist",
                 "html": (
-                    f"<p>Hi {petitioner_name},</p>"
-                    f"<p>Here is your personalized checklist for your {visa_type} visa application.</p>"
+                    f"<p>Hi {strip_non_latin1(petitioner_name)},</p>"
+                    f"<p>Here is your personalized checklist for your {strip_non_latin1(visa_type)} visa application.</p>"
                     f'<p><a href="{signed_url}">Click here to download your checklist PDF</a></p>'
                     "<br><p>Best,<br>The ImmigrAI Team</p>"
                 ),
-                # Optional niceties:
                 "reply_to": [from_addr],
-                "headers": {"X-Product": "ImmigrAI"}
             }
 
             r = requests.post(
@@ -144,20 +141,21 @@ if submit:
                 timeout=20,
             )
 
-            if r.status_code == 202:
+            # ✅ Treat both 200 and 202 as success
+            if r.status_code in (200, 202):
                 st.success("📧 Checklist emailed to you!")
             else:
                 st.warning("⚠️ Email failed — but your download link is still below.")
-                # Show the exact reason from Resend so we can fix quickly
-                try:
-                    st.text(f"Resend status: {r.status_code}")
-                    st.json(r.json())
-                except Exception:
-                    st.text(f"Resend raw: {r.status_code} {r.text}")
+                if DEBUG:
+                    try:
+                        st.text(f"Resend status: {r.status_code}")
+                        st.json(r.json())
+                    except Exception:
+                        st.text(f"Resend raw: {r.status_code} {r.text}")
 
         except Exception as e:
             st.warning("Email delivery failed.")
-            st.exception(e)
+            if DEBUG: st.exception(e)
     else:
         st.warning("📤 Email skipped due to upload issue.")
 
