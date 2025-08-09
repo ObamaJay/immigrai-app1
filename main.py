@@ -112,34 +112,52 @@ if submit:
         except Exception: pass
 
     # ---------- Email via Resend (only if upload worked) ----------
+    # ---------- Email via Resend (only if upload worked) ----------
     if signed_url:
         try:
+            from_addr = st.secrets.get("FROM_EMAIL", "onboarding@resend.dev")
+            # Use a proper display name + verified sender
+            from_header = f"ImmigrAI <{from_addr}>"
+
+            payload = {
+                "from": from_header,               # must be a verified domain email
+                "to": [email],                     # array is fine
+                "subject": "Your ImmigrAI USCIS Checklist",
+                "html": (
+                    f"<p>Hi {petitioner_name},</p>"
+                    f"<p>Here is your personalized checklist for your {visa_type} visa application.</p>"
+                    f'<p><a href="{signed_url}">Click here to download your checklist PDF</a></p>'
+                    "<br><p>Best,<br>The ImmigrAI Team</p>"
+                ),
+                # Optional niceties:
+                "reply_to": [from_addr],
+                "headers": {"X-Product": "ImmigrAI"}
+            }
+
             r = requests.post(
                 "https://api.resend.com/emails",
                 headers={
                     "Authorization": f"Bearer {st.secrets['RESEND_API_KEY']}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 },
-                json={
-                    "from": st.secrets["FROM_EMAIL"],
-                    "to": email,
-                    "subject": "Your AI-generated USCIS Checklist",
-                    "html": (
-                        f"<p>Hi {remove_non_latin1(petitioner_name)},</p>"
-                        f"<p>Here is your personalized checklist for your {remove_non_latin1(visa_type)} visa application.</p>"
-                        f'<p><a href="{signed_url}">📥 Click here to download your checklist PDF</a></p>'
-                        "<br><p>Best,<br>The ImmigrAI Team</p>"
-                    ),
-                }
+                json=payload,
+                timeout=20,
             )
+
             if r.status_code == 202:
                 st.success("📧 Checklist emailed to you!")
             else:
                 st.warning("⚠️ Email failed — but your download link is still below.")
-                if DEBUG: st.text(r.text)
+                # Show the exact reason from Resend so we can fix quickly
+                try:
+                    st.text(f"Resend status: {r.status_code}")
+                    st.json(r.json())
+                except Exception:
+                    st.text(f"Resend raw: {r.status_code} {r.text}")
+
         except Exception as e:
             st.warning("Email delivery failed.")
-            if DEBUG: st.exception(e)
+            st.exception(e)
     else:
         st.warning("📤 Email skipped due to upload issue.")
 
