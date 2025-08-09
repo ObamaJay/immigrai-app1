@@ -9,7 +9,7 @@ import os
 
 # ---------------- Config ----------------
 st.set_page_config(page_title="ImmigrAI – AI USCIS Checklist", layout="centered")
-DEBUG = False  # flip to True to see raw responses/errors
+DEBUG = True  # flip to True to see raw responses/errors
 
 # ---------------- Secrets / Clients ----------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
