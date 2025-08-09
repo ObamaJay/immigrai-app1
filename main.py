@@ -87,7 +87,7 @@ if submit:
     try:
         with open(temp_path, "rb") as f:
             upload_resp = supabase.storage.from_("casefiles").upload(
-                path=f"casefiles/{file_name}",
+                path=file_name,
                 file=f,
                 file_options={"content-type": "application/pdf"}
             )
@@ -96,7 +96,7 @@ if submit:
             st.write(upload_resp)
 
         signed_resp = supabase.storage.from_("casefiles").create_signed_url(
-            path=f"casefiles/{file_name}",
+            path=file_name,
             expires_in=3600
         )
         if DEBUG:
