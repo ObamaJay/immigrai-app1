@@ -14,11 +14,10 @@ st.set_page_config(page_title="ImmigrAI – AI USCIS Checklist", layout="centere
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_SERVICE_ROLE_KEY"])
 
-TABLE_NAME = "leads"  # switch to "cases" if you prefer that table name
+TABLE_NAME = "leads"  # or "cases" if you renamed it
 
 # ---------------- Helpers ----------------
 def strip_non_latin1(text: str) -> str:
-    # fpdf classic supports latin-1 only; strip emojis/curly quotes/etc
     return text.encode("latin1", "ignore").decode("latin1")
 
 def send_resend_email(to_email: str, from_email: str, petitioner: str, visa: str, signed_url: str) -> bool:
@@ -44,7 +43,7 @@ def send_resend_email(to_email: str, from_email: str, petitioner: str, visa: str
 
 # ---------------- UI ----------------
 st.title("📄 ImmigrAI: Smart USCIS Checklist Generator")
-st.write("Get your personalized immigration checklist in seconds. Free preview; $19 for full download + email.")
+st.write("Get your personalized immigration checklist in seconds. Free preview; $19 for single checklist or $49 for unlimited 30 days.")
 
 with st.container():
     st.markdown("**Start here**")
@@ -95,7 +94,6 @@ try:
         "created_at": datetime.datetime.utcnow().isoformat(),
     }).execute()
 except Exception:
-    # Keep UX clean; logging can be added later
     st.caption("")
 
 # ---------------- Build PDF ----------------
@@ -119,7 +117,7 @@ signed_url = None
 try:
     with open(temp_path, "rb") as f:
         supabase.storage.from_("casefiles").upload(
-            path=file_name,  # bucket-scoped; no leading folder
+            path=file_name,
             file=f,
             file_options={"content-type": "application/pdf"},
         )
@@ -144,9 +142,14 @@ if signed_url:
     else:
         st.warning("Email couldn’t be sent right now, but your direct download link is above.")
 else:
-    st.markdown("### 🔒 Unlock Full Checklist PDF")
-    st.write("Get the professionally formatted PDF and email delivery.")
-    st.link_button("💳 Unlock for $19", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01")  # replace with your live link
+    st.markdown("### 🔒 Unlock Your Full Checklist PDF")
+    st.write("Choose your plan below to get your professionally formatted checklist PDF and email delivery.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.link_button("💳 Single Checklist – $19", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01")
+    with col2:
+        st.link_button("💎 Unlimited 30 Days – $49 (Best Value)", "https://buy.stripe.com/cNi28sccn34rggn2cB4wM02")  # Replace with your 49$ link
 
 # ---------------- Footer / Trust ----------------
 st.markdown("---")
