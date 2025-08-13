@@ -146,7 +146,7 @@ if signed_url:
 else:
     st.markdown("### 🔒 Unlock Full Checklist PDF")
     st.write("Get the professionally formatted PDF and email delivery.")
-    st.link_button("💳 Unlock for $19", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM0")  # replace with your live link
+    st.link_button("💳 Unlock for $19", "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01")  # replace with your live link
 
 # ---------------- Footer / Trust ----------------
 st.markdown("---")
