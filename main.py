@@ -126,44 +126,48 @@ if PAYWALL:
     st.write("Choose your plan below to get your professionally formatted checklist PDF and email delivery.")
 
     # 👇 NEW: fire GA4 checkout_clicked on button press, then show Stripe link
-    col1, col2 = st.columns(2)
+    components.html(
+    """
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+      <!-- $19 -->
+      <a href="https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01"
+         target="_top" rel="noopener"
+         onclick="try{window.top.location.href=this.href;event.preventDefault();}catch(e){}"
+         style="text-decoration:none; display:inline-block; background:#ffffff; color:#111; padding:12px 18px; border-radius:10px; font-weight:700; border:1px solid rgba(0,0,0,0.08); box-shadow:0 1px 2px rgba(0,0,0,.06);">
+        Get Checklist — $19
+      </a>
 
-with col1:
-    # Fire GA4 + show Stripe button (HTML link with target="_top")
-    if st.button("💳 Single Checklist – $19", use_container_width=True):
-        send_ga4_event(
-            "checkout_clicked",
-            {"plan": "per_case", "price": 19, "method": "stripe_payment_link"},
-            client_id=email or None,
-        )
-    st.markdown(
-        """
-        <a href="https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01"
-           target="_top" rel="noopener"
-           style="display:inline-block; background:#fff; color:#111; font-weight:600; padding:10px 16px; border-radius:8px; text-decoration:none; margin-top:8px;">
-           Continue to Checkout
-        </a>
-        """,
-        unsafe_allow_html=True,
-    )
+      <!-- $49 -->
+      <a href="https://buy.stripe.com/cNi28sccn34rggn2cB4wM02"
+         target="_top" rel="noopener"
+         onclick="try{window.top.location.href=this.href;event.preventDefault();}catch(e){}"
+         style="text-decoration:none; display:inline-block; background:#2563eb; color:#fff; padding:12px 18px; border-radius:10px; font-weight:700; box-shadow:0 1px 2px rgba(0,0,0,.10);">
+        Checklist + PDF — $49
+      </a>
+    </div>
 
-with col2:
-    if st.button("💎 Unlimited 30 Days – $49 (Best Value)", use_container_width=True):
-        send_ga4_event(
-            "checkout_clicked",
-            {"plan": "monthly", "price": 49, "method": "stripe_payment_link"},
-            client_id=email or None,
-        )
-    st.markdown(
-        """
-        <a href="https://buy.stripe.com/cNi28sccn34rggn2cB4wM02"
-           target="_top" rel="noopener"
-           style="display:inline-block; background:#2563eb; color:#fff; font-weight:600; padding:10px 16px; border-radius:8px; text-decoration:none; margin-top:8px;">
-           Continue to Checkout
-        </a>
-        """,
-        unsafe_allow_html=True,
-    )
+    <!-- Safety net: if Streamlit re-renders, keep forcing Stripe links to open top-level -->
+    <script>
+    (function(){
+      function patch(){
+        document.querySelectorAll('a[href^="https://buy.stripe.com"]').forEach(a=>{
+          a.setAttribute('target','_top');
+          a.setAttribute('rel','noopener');
+          if(!a.__patched){
+            a.addEventListener('click', function(e){
+              try { window.top.location.href = this.href; e.preventDefault(); } catch(err){}
+            });
+            a.__patched = true;
+          }
+        });
+      }
+      patch();
+      new MutationObserver(patch).observe(document.body, {childList:true, subtree:true});
+    })();
+    </script>
+    """,
+    height=70,
+)
 
     st.markdown("---")
     st.caption(
