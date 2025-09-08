@@ -127,22 +127,43 @@ if PAYWALL:
 
     # 👇 NEW: fire GA4 checkout_clicked on button press, then show Stripe link
     col1, col2 = st.columns(2)
-    with col1:
-        if st.button("💳 Single Checklist – $19"):
-            send_ga4_event(
-                "checkout_clicked",
-                {"plan": "per_case", "price": 19, "method": "stripe_payment_link"},
-                client_id=email or None,
-            )
-            st.markdown("[Continue to Checkout](https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01)")
-    with col2:
-        if st.button("💎 Unlimited 30 Days – $49 (Best Value)"):
-            send_ga4_event(
-                "checkout_clicked",
-                {"plan": "monthly", "price": 49, "method": "stripe_payment_link"},
-                client_id=email or None,
-            )
-            st.markdown("[Continue to Checkout](https://buy.stripe.com/cNi28sccn34rggn2cB4wM02)")
+
+with col1:
+    # Fire GA4 + show Stripe button (HTML link with target="_top")
+    if st.button("💳 Single Checklist – $19", use_container_width=True):
+        send_ga4_event(
+            "checkout_clicked",
+            {"plan": "per_case", "price": 19, "method": "stripe_payment_link"},
+            client_id=email or None,
+        )
+    st.markdown(
+        """
+        <a href="https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01"
+           target="_top" rel="noopener"
+           style="display:inline-block; background:#fff; color:#111; font-weight:600; padding:10px 16px; border-radius:8px; text-decoration:none; margin-top:8px;">
+           Continue to Checkout
+        </a>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with col2:
+    if st.button("💎 Unlimited 30 Days – $49 (Best Value)", use_container_width=True):
+        send_ga4_event(
+            "checkout_clicked",
+            {"plan": "monthly", "price": 49, "method": "stripe_payment_link"},
+            client_id=email or None,
+        )
+    st.markdown(
+        """
+        <a href="https://buy.stripe.com/cNi28sccn34rggn2cB4wM02"
+           target="_top" rel="noopener"
+           style="display:inline-block; background:#2563eb; color:#fff; font-weight:600; padding:10px 16px; border-radius:8px; text-decoration:none; margin-top:8px;">
+           Continue to Checkout
+        </a>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.markdown("---")
     st.caption(
