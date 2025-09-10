@@ -131,22 +131,15 @@ if PAYWALL:
     STRIPE_49 = "https://buy.stripe.com/cNi28sccn34rggn2cB4wM02"
 
     col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2)
     with col1:
-        if st.button("💳 Get Checklist — $19", use_container_width=True):
-            send_ga4_event("checkout_clicked", {"plan": "19"})
-            # Force top-level redirect (works in embed with proper sandbox flag)
-            st.write(
-                f'<script>window.top.location.href="{STRIPE_19}";</script>',
-                unsafe_allow_html=True,
-            )
+        st.link_button("💳 Get Checklist — $19", STRIPE_19, use_container_width=True)
+        # Fire GA4 event when link is shown (approximation of click)
+        send_ga4_event("checkout_link_rendered", {"plan": "19"})
 
     with col2:
-        if st.button("📦 Checklist + PDF — $49", use_container_width=True):
-            send_ga4_event("checkout_clicked", {"plan": "49"})
-            st.write(
-                f'<script>window.top.location.href="{STRIPE_49}";</script>',
-                unsafe_allow_html=True,
-            )
+        st.link_button("📦 Checklist + PDF — $49", STRIPE_49, use_container_width=True)
+        send_ga4_event("checkout_link_rendered", {"plan": "49"})
 
     st.markdown("---")
     st.caption(
