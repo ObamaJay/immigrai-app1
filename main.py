@@ -3,6 +3,7 @@ import os
 import uuid
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 from datetime import datetime
 
 # ──────────────────────────────────────────────────────────────
@@ -27,6 +28,7 @@ GA4_ENDPOINT = (
     else ""
 )
 
+
 def send_ga4_event(name: str, params: dict | None = None, client_id: str | None = None) -> None:
     """Fire a GA4 event via the Measurement Protocol (safe/no-throw)."""
     if not GA4_ENDPOINT:
@@ -40,7 +42,9 @@ def send_ga4_event(name: str, params: dict | None = None, client_id: str | None 
     try:
         requests.post(GA4_ENDPOINT, json=payload, timeout=3)
     except Exception:
+        # Don't break UX if GA is unreachable
         pass
+
 
 # One stable GA client id per Streamlit session
 if "ga_client_id" not in st.session_state:
@@ -65,8 +69,7 @@ Get your personalized immigration checklist in seconds. Free preview; **\\$19** 
 st.markdown("---")
 
 # ──────────────────────────────────────────────────────────────
-# INPUTS & PREVIEW GENERATOR
-# Simple rules-based preview so users always get instant results.
+# INPUTS & PREVIEW GENERATOR (rules-based — instant, no API needed)
 # ──────────────────────────────────────────────────────────────
 st.subheader("Start here")
 
@@ -93,17 +96,12 @@ with st.form("intake"):
 
     submitted = st.form_submit_button("Generate free preview")
     if submitted:
-        # Fire a GA4 event that a preview started (optional but useful)
         send_ga4_event(
             "generate_checklist_started",
-            {
-                "form_type": form_type,
-                "spouse": is_spouse.lower() == "yes",
-            },
+            {"form_type": form_type, "spouse": is_spouse.lower() == "yes"},
             client_id=GA_CLIENT_ID,
         )
 
-        # Very light rules-based preview
         base = [
             ("Government ID", "Photo ID for each applicant (passport or driver’s license)."),
             ("Filing Fee Payment", "Check or money order; verify current fee on USCIS.gov."),
@@ -140,7 +138,6 @@ with st.form("intake"):
         if is_spouse == "Yes" and not any("Marriage Certificate" in x[0] for x in items):
             items.append(("Marriage Certificate", "Certified copy; provide translation if not in English."))
 
-        # Save preview into session so we can show + email later
         st.session_state["preview_items"] = base + items
         st.session_state["full_name"] = full_name.strip()
         st.session_state["email"] = email.strip()
@@ -161,7 +158,6 @@ if "preview_items" in st.session_state:
         email_now = st.text_input("Confirm email", value=st.session_state.get("email", ""))
         send_btn = st.form_submit_button("Send preview")
         if send_btn:
-            # You can swap this log for a webhook or email service call.
             st.session_state["email"] = email_now.strip()
             st.info(f"Preview queued for **{email_now}** (demo).")
             send_ga4_event(
@@ -175,7 +171,8 @@ if "preview_items" in st.session_state:
 
 # ──────────────────────────────────────────────────────────────
 # PAYWALL SECTION
-# Only fires GA4 begin_checkout when the actual button is clicked.
+# Opens Stripe in a NEW TAB (works in iframes), + fallback anchor link.
+# Fires GA4 begin_checkout ONLY on real click.
 # ──────────────────────────────────────────────────────────────
 st.divider()
 st.markdown("### 🔒 Unlock Your Full Checklist PDF")
@@ -185,10 +182,35 @@ st.write("Choose your plan to receive your professionally formatted checklist PD
 STRIPE_19 = "https://buy.stripe.com/dRmfZiccndJ52px6sR4wM01"
 STRIPE_49 = "https://buy.stripe.com/cNi28sccn34rggn2cB4wM02"
 
+def open_checkout(url: str, button_label: str):
+    """Opens Stripe Checkout in a new tab from a user gesture + shows a fallback link."""
+    # Trigger a popup/new tab
+    components.html(
+        f"""
+        <script>
+          try {{
+            window.open("{url}", "_blank", "noopener");
+          }} catch(e) {{
+            // fallback: navigate current tab if popup blocked
+            window.location.href = "{url}";
+          }}
+        </script>
+        <div style="margin-top:8px">
+          <a href="{url}" target="_blank" rel="noopener"
+             style="display:inline-block;padding:.6rem 1rem;border-radius:.5rem;
+                    background:#635bff;color:white;text-decoration:none;font-weight:600;">
+             Open Checkout
+          </a>
+        </div>
+        """,
+        height=90,
+    )
+    st.info("If a new tab didn’t open, click “Open Checkout”.", icon="🔗")
+
 col1, col2 = st.columns(2)
+
 with col1:
-    go19 = st.button("💳 Get Checklist — $19", use_container_width=True)
-    if go19:
+    if st.button("💳 Get Checklist — $19", use_container_width=True):
         send_ga4_event(
             "begin_checkout",
             {
@@ -200,11 +222,10 @@ with col1:
             },
             client_id=GA_CLIENT_ID,
         )
-        st.markdown(f'<meta http-equiv="refresh" content="0; url={STRIPE_19}">', unsafe_allow_html=True)
+        open_checkout(STRIPE_19, "Get Checklist — $19")
 
 with col2:
-    go49 = st.button("📦 Checklist + PDF — $49", use_container_width=True)
-    if go49:
+    if st.button("📦 Checklist + PDF — $49", use_container_width=True):
         send_ga4_event(
             "begin_checkout",
             {
@@ -216,7 +237,7 @@ with col2:
             },
             client_id=GA_CLIENT_ID,
         )
-        st.markdown(f'<meta http-equiv="refresh" content="0; url={STRIPE_49}">', unsafe_allow_html=True)
+        open_checkout(STRIPE_49, "Checklist + PDF — $49")
 
 st.markdown("---")
 st.caption(
