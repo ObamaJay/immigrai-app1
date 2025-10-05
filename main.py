@@ -6,7 +6,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # ──────────────────────────────────────────────────────────────
-# GA4 CONFIG (Measurement Protocol)
+# GA4 (Measurement Protocol)
 # ──────────────────────────────────────────────────────────────
 GA4_MEASUREMENT_ID = st.secrets.get("GA4_MEASUREMENT_ID", os.getenv("GA4_MEASUREMENT_ID", ""))
 GA4_API_SECRET     = st.secrets.get("GA4_API_SECRET",     os.getenv("GA4_API_SECRET", ""))
@@ -26,29 +26,29 @@ def send_ga4_event(name: str, params: dict | None = None, client_id: str | None 
     except Exception:
         pass
 
-# One stable GA client id per Streamlit session
 if "ga_client_id" not in st.session_state:
     st.session_state["ga_client_id"] = str(uuid.uuid4())
 GA_CLIENT_ID = st.session_state["ga_client_id"]
 
 # ──────────────────────────────────────────────────────────────
-# STRIPE MODE + LINKS
+# STRIPE MODE + LINKS with ENV LOCK
 # ──────────────────────────────────────────────────────────────
-DEFAULT_MODE = st.secrets.get("STRIPE_MODE", os.getenv("STRIPE_MODE", "live")).strip().lower()
+# STRIPE_ENV_LOCK overrides everything: "live" or "test"
+ENV_LOCK = os.getenv("STRIPE_ENV_LOCK", "").strip().lower()  # set in each deploy target
+DEFAULT_MODE = st.secrets.get("STRIPE_MODE", os.getenv("STRIPE_MODE", "test")).strip().lower()
 ALLOW_SWITCH = st.secrets.get("ALLOW_MODE_SWITCH", os.getenv("ALLOW_MODE_SWITCH", "false")).strip().lower() == "true"
 
-# Persist mode across interactions if switching is allowed
 if "stripe_mode" not in st.session_state:
-    st.session_state["stripe_mode"] = DEFAULT_MODE
+    st.session_state["stripe_mode"] = (ENV_LOCK if ENV_LOCK in ("test","live") else DEFAULT_MODE)
 
-if ALLOW_SWITCH:
+# Only show toggle if (a) allow_switch is true AND (b) not locked by env
+if ALLOW_SWITCH and ENV_LOCK not in ("test","live"):
     with st.sidebar:
         st.caption("Developer")
         st.session_state["stripe_mode"] = st.selectbox("Stripe Mode", ["test", "live"], index=0 if DEFAULT_MODE=="test" else 1)
 
 MODE = st.session_state["stripe_mode"]
 
-# pull links by mode
 def get_link(name: str) -> str:
     key = f"STRIPE_{MODE.upper()}_{name}"
     return st.secrets.get(key, os.getenv(key, ""))
@@ -57,7 +57,7 @@ LINK_19 = get_link("LINK_19")
 LINK_49 = get_link("LINK_49")
 
 # ──────────────────────────────────────────────────────────────
-# PAGE SETUP
+# PAGE
 # ──────────────────────────────────────────────────────────────
 st.set_page_config(page_title="ImmigrAI – USCIS Checklist Generator", page_icon="🧾", layout="centered")
 st.markdown(
@@ -69,9 +69,6 @@ Get your personalized immigration checklist in seconds. Free preview; **$19** fo
 )
 st.markdown("---")
 
-# ──────────────────────────────────────────────────────────────
-# INPUTS & PREVIEW GENERATOR (rules-based — instant, no API needed)
-# ──────────────────────────────────────────────────────────────
 st.subheader("Start here")
 with st.form("intake"):
     colA, colB = st.columns(2)
@@ -91,7 +88,7 @@ with st.form("intake"):
         send_ga4_event(
             "generate_checklist_started",
             {"form_type": form_type, "spouse": is_spouse.lower() == "yes"},
-            client_id=GA_CLIENT_ID,
+            client_id=st.session_state["ga_client_id"],
         )
 
         base = [
@@ -120,13 +117,12 @@ with st.form("intake"):
                 ("Proof of Meeting", "Evidence you met in person within 2 years."),
                 ("Intent to Marry", "Letters of intent to marry within 90 days of entry."),
             ]
-        else:  # N-400
+        else:
             items = [
                 ("Form N-400", "Application for Naturalization."),
                 ("Residence Evidence", "Green card (front/back), travel history."),
                 ("Selective Service", "If applicable."),
             ]
-
         if is_spouse == "Yes" and not any("Marriage Certificate" in x[0] for x in items):
             items.append(("Marriage Certificate", "Certified copy; provide translation if not in English."))
 
@@ -135,7 +131,6 @@ with st.form("intake"):
         st.session_state["email"] = (email or "").strip()
         st.session_state["form_type"] = form_type
 
-# Show preview if available
 if "preview_items" in st.session_state:
     st.success("✅ Preview generated! Review below.")
     st.caption("This is a sample preview. Your purchased checklist PDF will be formatted & personalized.")
@@ -153,21 +148,14 @@ if "preview_items" in st.session_state:
             st.info(f"Preview queued for **{email_now}** (demo).")
             send_ga4_event(
                 "lead_captured",
-                {
-                    "email_domain": (email_now.split("@", 1)[1] if "@" in email_now else ""),
-                    "form_type": st.session_state.get("form_type", ""),
-                },
-                client_id=GA_CLIENT_ID,
+                {"email_domain": (email_now.split("@", 1)[1] if "@" in email_now else ""), "form_type": st.session_state.get("form_type", "")},
+                client_id=st.session_state["ga_client_id"],
             )
 
-# ──────────────────────────────────────────────────────────────
-# PAYWALL SECTION — open checkout in new tab; only fires begin_checkout on click
-# ──────────────────────────────────────────────────────────────
 st.divider()
-st.markdown(f"### 🔒 Unlock Your Full Checklist PDF  \n*Mode:* **{MODE.upper()}**")
+st.markdown(f"### 🔒 Unlock Your Full Checklist PDF  \n*Mode:* **{(ENV_LOCK or MODE).upper()}**")
 
 def open_checkout(url: str):
-    """Open Stripe in a new tab from a user gesture; render a fallback link if pop-up blocked."""
     if not url:
         st.error("No Stripe link configured for this mode.")
         return
@@ -190,25 +178,17 @@ def open_checkout(url: str):
     st.info("If a new tab didn’t open, click “Open Checkout”.", icon="🔗")
 
 col1, col2 = st.columns(2)
-
 with col1:
     if st.button("💳 Get Checklist — $19", use_container_width=True):
-        send_ga4_event(
-            "begin_checkout",
-            {"currency": "USD", "value": 19.0,
-             "items": [{"item_id":"single_checklist","item_name":"Single Checklist","price":19.0,"quantity":1}]},
-            client_id=GA_CLIENT_ID,
-        )
+        send_ga4_event("begin_checkout",
+            {"currency":"USD","value":19.0,"items":[{"item_id":"single_checklist","item_name":"Single Checklist","price":19.0,"quantity":1}]},
+            client_id=st.session_state["ga_client_id"])
         open_checkout(LINK_19)
-
 with col2:
     if st.button("📦 Checklist + PDF — $49", use_container_width=True):
-        send_ga4_event(
-            "begin_checkout",
-            {"currency": "USD", "value": 49.0,
-             "items": [{"item_id":"unlimited_30_days","item_name":"Unlimited 30 Days","price":49.0,"quantity":1}]},
-            client_id=GA_CLIENT_ID,
-        )
+        send_ga4_event("begin_checkout",
+            {"currency":"USD","value":49.0,"items":[{"item_id":"unlimited_30_days","item_name":"Unlimited 30 Days","price":49.0,"quantity":1}]},
+            client_id=st.session_state["ga_client_id"])
         open_checkout(LINK_49)
 
 st.markdown("---")
