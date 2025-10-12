@@ -1,4 +1,3 @@
-# main.py
 import os
 import uuid
 import requests
@@ -31,25 +30,19 @@ if "ga_client_id" not in st.session_state:
 GA_CLIENT_ID = st.session_state["ga_client_id"]
 
 # ──────────────────────────────────────────────────────────────
-# STRIPE MODE + LINKS with ENV LOCK
+# STRIPE MODE + LINKS with ENV LOCK (no UI switch)
 # ──────────────────────────────────────────────────────────────
-# STRIPE_ENV_LOCK overrides everything: "live" or "test"
-ENV_LOCK = os.getenv("STRIPE_ENV_LOCK", "").strip().lower()  # set in each deploy target
+# Set these in Streamlit Cloud *or* your Codespace/container:
+#   STRIPE_ENV_LOCK=test  (Preview/dev)   or   STRIPE_ENV_LOCK=live (Production)
+# Fallback to STRIPE_MODE if ENV_LOCK is unset.
+ENV_LOCK = os.getenv("STRIPE_ENV_LOCK", "").strip().lower()          # "live" | "test" | ""
 DEFAULT_MODE = st.secrets.get("STRIPE_MODE", os.getenv("STRIPE_MODE", "test")).strip().lower()
-ALLOW_SWITCH = st.secrets.get("ALLOW_MODE_SWITCH", os.getenv("ALLOW_MODE_SWITCH", "false")).strip().lower() == "true"
-
-if "stripe_mode" not in st.session_state:
-    st.session_state["stripe_mode"] = (ENV_LOCK if ENV_LOCK in ("test","live") else DEFAULT_MODE)
-
-# Only show toggle if (a) allow_switch is true AND (b) not locked by env
-if ALLOW_SWITCH and ENV_LOCK not in ("test","live"):
-    with st.sidebar:
-        st.caption("Developer")
-        st.session_state["stripe_mode"] = st.selectbox("Stripe Mode", ["test", "live"], index=0 if DEFAULT_MODE=="test" else 1)
-
-MODE = st.session_state["stripe_mode"]
+MODE = ENV_LOCK if ENV_LOCK in ("test", "live") else DEFAULT_MODE     # final authoritative mode
 
 def get_link(name: str) -> str:
+    # Expect in secrets (or env) keys like:
+    #   STRIPE_TEST_LINK_19 / STRIPE_TEST_LINK_49
+    #   STRIPE_LIVE_LINK_19 / STRIPE_LIVE_LINK_49
     key = f"STRIPE_{MODE.upper()}_{name}"
     return st.secrets.get(key, os.getenv(key, ""))
 
@@ -67,6 +60,7 @@ st.markdown(
 Get your personalized immigration checklist in seconds. Free preview; **$19** for a single checklist or **$49** for unlimited 30 days.
 """
 )
+st.caption(f"Mode: **{MODE.upper()}**")
 st.markdown("---")
 
 st.subheader("Start here")
@@ -153,7 +147,7 @@ if "preview_items" in st.session_state:
             )
 
 st.divider()
-st.markdown(f"### 🔒 Unlock Your Full Checklist PDF  \n*Mode:* **{(ENV_LOCK or MODE).upper()}**")
+st.markdown("### 🔒 Unlock Your Full Checklist PDF")
 
 def open_checkout(url: str):
     if not url:
